@@ -2,6 +2,7 @@ use std::env;
 use std::path;
 
 fn main() {
+    find_cuda_helper::include_cuda();
     let cuda_root = find_cuda_helper::find_cuda_root()
         .expect("CUDA must be installed to generate cust_raw bindings.");
     let cuda_include_path = cuda_root.join("include");

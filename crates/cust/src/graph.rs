@@ -156,6 +156,7 @@ impl GraphNode {
 /// The different types that a node can be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum GraphNodeType {
     /// Invokes a GPU kernel.
     KernelInvocation,
@@ -213,6 +214,7 @@ impl GraphNodeType {
             }
             #[cfg(conditional_node)]
             cuda::CUgraphNodeType::CU_GRAPH_NODE_TYPE_CONDITIONAL => GraphNodeType::Conditional,
+            _ => GraphNodeType::Empty,
         }
     }
 
