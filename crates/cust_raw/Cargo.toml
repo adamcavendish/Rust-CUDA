@@ -6,7 +6,28 @@ license = "MIT OR Apache-2.0"
 description = "Low level bindings to the CUDA Driver API"
 repository = "https://github.com/Rust-GPU/Rust-CUDA"
 readme = "../../README.md"
+links = "cuda"
+build = "build/main.rs"
 
 [build-dependencies]
 bindgen = "0.71.1"
-find_cuda_helper = { path = "../find_cuda_helper", version = "0.2" }
+
+[package.metadata.docs.rs]
+features = ["cuda-12080"]
+
+[features]
+default = ["cuda-12080"]
+
+# Generate bindgen and build using host system's CUDA SDK headers.
+cuda-from-host = []
+
+# Build against a specific CUDA version.
+cuda-11080 = []
+cuda-12000 = []
+cuda-12010 = []
+cuda-12020 = []
+cuda-12030 = []
+cuda-12040 = []
+cuda-12050 = []
+cuda-12060 = []
+cuda-12080 = []

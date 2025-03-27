@@ -1,0 +1,2 @@
+# The file is generated when user specifies "cuda-from-host" feature flag.
+/src/cuda_host.rs
