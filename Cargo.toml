@@ -8,10 +8,14 @@ members = [
 
   "xtask",
 
+  "examples/cuda/vecadd",
+  "examples/cuda/vecadd/kernels",
+  "examples/cuda/gemm",
+  "examples/cuda/gemm/kernels",
+
   "examples/optix/*",
   "examples/cuda/cpu/*",
   "examples/cuda/gpu/*",
-
 ]
 
 exclude = [

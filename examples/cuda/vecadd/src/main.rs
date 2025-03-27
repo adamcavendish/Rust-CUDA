@@ -5,7 +5,7 @@ use std::error::Error;
 /// How many numbers to generate and add together.
 const NUMBERS_LEN: usize = 100_000;
 
-static PTX: &str = include_str!("../../../resources/add.ptx");
+static PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/kernels.ptx"));
 
 fn main() -> Result<(), Box<dyn Error>> {
     // generate our random vectors.
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out_buf = out.as_slice().as_dbuf()?;
 
     // retrieve the add kernel from the module so we can calculate the right launch config.
-    let func = module.get_function("add")?;
+    let func = module.get_function("vecadd")?;
 
     // use the CUDA occupancy API to find an optimal launch configuration for the grid and block size.
     // This will try to maximize how much of the GPU is used by finding the best launch configuration for the
