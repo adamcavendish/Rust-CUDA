@@ -33,7 +33,7 @@ impl_num_complex = ["cust_core/num-complex", "num-complex"]
 
 [build-dependencies]
 cust_raw = { path = "../cust_raw", version = "0.11.2"}
-find_cuda_helper = { path = "../find_cuda_helper", version = "0.2" }
+# find_cuda_helper = { path = "../find_cuda_helper", version = "0.2" }
 serde_json = "1.0.140"
 
 [dev-dependencies]
