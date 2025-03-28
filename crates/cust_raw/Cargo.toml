@@ -13,11 +13,9 @@ build = "build/main.rs"
 bindgen = "0.71.1"
 
 [package.metadata.docs.rs]
-features = ["cuda-12080"]
+features = ["cuda-12080", "driver", "cublas", "cublaslt", "cublasxt", "nvvm"]
 
 [features]
-default = ["cuda-12080"]
-
 # Generate bindgen and build using host system's CUDA SDK headers.
 cuda-from-host = []
 
@@ -31,3 +29,9 @@ cuda-12040 = []
 cuda-12050 = []
 cuda-12060 = []
 cuda-12080 = []
+
+driver = []
+cublas = []
+cublaslt = []
+cublasxt = []
+nvvm = []

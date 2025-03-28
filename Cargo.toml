@@ -14,6 +14,7 @@ members = [
 ]
 
 exclude = [
+    "crates/cublas_sys.bak",
     "crates/find_cuda_helper.bak",
     "crates/optix/examples/common",
 ]

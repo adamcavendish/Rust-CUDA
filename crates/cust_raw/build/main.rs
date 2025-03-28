@@ -7,70 +7,70 @@ use std::time;
 pub mod cuda_sdk;
 
 const CUDA_BINDGEN_REGEN_ENV: &str = "CUDA_BINDGEN_REGEN";
-const ENV_SEPARATOR: &str = if cfg!(target_os = "windows") {
-    ";"
-} else {
-    ":"
-};
 
 fn main() {
     if env::var("DOCS_RS").is_ok() && cfg!(doc) {
         return;
     }
 
+    let sdk = cuda_sdk::CudaSdk::new().expect("Cannot create CUDA SDK instance.");
+    // Emit metadata for the build script.
+    println!("cargo::metadata=root={}", sdk.cuda_root().display());
+    println!("cargo::metadata=version={}", sdk.cuda_version());
+    println!("cargo::metadata=version_major={}", sdk.cuda_version_major());
+    println!("cargo::metadata=version_minor={}", sdk.cuda_version_minor());
+    // Re-run build script conditions.
+    println!("cargo::rerun-if-changed=build/*.rs");
+    for e in sdk.related_cuda_envs() {
+        println!("cargo::rerun-if-env-changed={}", e);
+    }
+
     let force_regen = match env::var(CUDA_BINDGEN_REGEN_ENV) {
         Ok(s) => s == "1",
         Err(_) => false,
     };
-
-    let sdk = cuda_sdk::CudaSdk::new().expect("Cannot create CUDA SDK instance.");
-
     if force_regen || cfg!(feature = "cuda-from-host") {
         let suffix = if force_regen {
             sdk.cuda_version().to_string()
         } else {
             "from_host".to_string()
         };
-
-        // CUDA Driver API Bindings.
-        let bindgen_path = path::PathBuf::from(format!("src/driver/driver_{}.rs", suffix));
-        let bindings =
-            create_cuda_driver_bindings(&sdk).expect("Unable to generate CUDA driver bindings.");
-        bindings
-            .write_to_file(bindgen_path.as_path())
-            .expect("Cannot write cuda_rt bindgen output to file.");
-        reset_mtime(bindgen_path.as_path()).expect("Cannot reset mtime of CUDA driver bindings.");
-
-        // cuBLAS API Bindings.
-        let bindgen_path = path::PathBuf::from(format!("src/cublas/cublas_{}.rs", suffix));
-        // @TODO/adamcavendish: finish cuBLAS.
-
-        // libNVVM API Bindings.
-        let bindgen_path = path::PathBuf::from(format!("src/nvvm/nvvm_{}.rs", suffix));
-        // @TODO/adamcavendish: finish libNVVM.
+        maybe_create_cuda_driver_bindings(&sdk, force_regen, suffix.as_str());
+        maybe_create_cublas_bindings(&sdk, force_regen, suffix.as_str());
+        maybe_create_nvvm_bindings(&sdk, force_regen, suffix.as_str());
     }
 
-    // Emit metadata for the build script.
-    println!("cargo::metadata=root={}", sdk.cuda_root().display());
-    println!("cargo::metadata=version={}", sdk.cuda_version());
-    println!("cargo::metadata=version_major={}", sdk.cuda_version_major());
-    println!("cargo::metadata=version_minor={}", sdk.cuda_version_minor());
-
-    println!("cargo::rerun-if-changed=build/*.rs");
-    for libdir in sdk.cuda_library_paths() {
-        println!("cargo::rustc-link-search=native={}", libdir.display());
+    if cfg!(feature = "driver")
+        || cfg!(feature = "cublas")
+        || cfg!(feature = "cublaslt")
+        || cfg!(feature = "cublasxt")
+    {
+        for libdir in sdk.cuda_library_paths() {
+            println!("cargo::rustc-link-search=native={}", libdir.display());
+        }
+        println!("cargo::rustc-link-lib=dylib=cuda");
     }
-    println!("cargo::rustc-link-lib=dylib=cuda");
-    for e in sdk.related_cuda_envs() {
-        println!("cargo::rerun-if-env-changed={}", e);
+    if cfg!(feature = "cublas") || cfg!(feature = "cublasxt") {
+        println!("cargo::rustc-link-lib=dylib=cublas");
+    }
+    if cfg!(feature = "cublaslt") {
+        println!("cargo::rustc-link-lib=dylib=cublaslt");
+    }
+    if cfg!(feature = "nvvm") {
+        for libdir in sdk.nvvm_library_paths() {
+            println!("cargo::rustc-link-search=native={}", libdir.display());
+        }
+        println!("cargo::rustc-link-lib=dylib=nvvm");
     }
 }
 
-fn create_cuda_driver_bindings(
-    sdk: &cuda_sdk::CudaSdk,
-) -> Result<bindgen::Bindings, Box<dyn error::Error>> {
+fn maybe_create_cuda_driver_bindings(sdk: &cuda_sdk::CudaSdk, force_regen: bool, suffix: &str) {
+    if !force_regen && !cfg!(feature = "driver") {
+        return;
+    }
+    let bindgen_path = path::PathBuf::from(format!("src/driver/driver_{}.rs", suffix));
     let bindings = bindgen::Builder::default()
-        .header("wrapper.h")
+        .header("src/driver/wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .clang_args(
             sdk.cuda_include_paths()
@@ -94,8 +94,99 @@ fn create_cuda_driver_bindings(
         .derive_ord(true)
         .size_t_is_usize(true)
         .layout_tests(true)
-        .generate()?;
-    Ok(bindings)
+        .generate()
+        .expect("Unable to generate CUDA driver bindings.");
+    bindings
+        .write_to_file(bindgen_path.as_path())
+        .expect("Cannot write CUDA driver bindgen output to file.");
+    reset_mtime(bindgen_path.as_path()).expect("Cannot reset mtime of CUDA driver bindings.");
+}
+
+fn maybe_create_cublas_bindings(sdk: &cuda_sdk::CudaSdk, force_regen: bool, suffix: &str) {
+    let params = &[
+        (
+            cfg!(feature = "cublas") || force_regen,
+            "cublas",
+            "^cublas.*",
+            "^CUBLAS.*",
+        ),
+        (
+            cfg!(feature = "cublaslt") || force_regen,
+            "cublaslt",
+            "^cublasLt.*",
+            "^CUBLASLT.*",
+        ),
+        (
+            cfg!(feature = "cublasxt") || force_regen,
+            "cublasxt",
+            "^cublasXt.*",
+            "^CUBLASXT.*",
+        ),
+    ];
+    for (should_generate, pkg, tf, var) in params {
+        if !should_generate {
+            continue;
+        }
+        let bindgen_path = path::PathBuf::from(format!("src/{pkg}/{pkg}_{suffix}.rs"));
+        let bindings = bindgen::Builder::default()
+            .header(format!("src/{pkg}/wrapper.h"))
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            .clang_args(
+                sdk.cuda_include_paths()
+                    .into_iter()
+                    .map(|p| format!("-I{}", p.display())),
+            )
+            .allowlist_type(tf)
+            .allowlist_function(tf)
+            .allowlist_var(var)
+            .default_enum_style(bindgen::EnumVariation::Rust {
+                non_exhaustive: true,
+            })
+            .derive_default(true)
+            .derive_eq(true)
+            .derive_hash(true)
+            .derive_ord(true)
+            .size_t_is_usize(true)
+            .layout_tests(true)
+            .generate()
+            .expect(format!("Unable to generate {pkg} bindings.").as_str());
+        bindings
+            .write_to_file(bindgen_path.as_path())
+            .expect(format!("Cannot write {pkg} bindgen output to file.").as_str());
+        reset_mtime(bindgen_path.as_path())
+            .expect(format!("Cannot reset mtime of {pkg} bindings.").as_str());
+    }
+}
+
+fn maybe_create_nvvm_bindings(sdk: &cuda_sdk::CudaSdk, force_regen: bool, suffix: &str) {
+    if !force_regen && !cfg!(feature = "nvvm") {
+        return;
+    }
+    let bindgen_path = path::PathBuf::from(format!("src/nvvm/nvvm_{}.rs", suffix));
+    let bindings = bindgen::Builder::default()
+        .header("src/nvvm/wrapper.h")
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .clang_args(
+            sdk.nvvm_include_paths()
+                .into_iter()
+                .map(|p| format!("-I{}", p.display())),
+        )
+        .allowlist_function("^nvvm.*")
+        .default_enum_style(bindgen::EnumVariation::Rust {
+            non_exhaustive: true,
+        })
+        .derive_default(true)
+        .derive_eq(true)
+        .derive_hash(true)
+        .derive_ord(true)
+        .size_t_is_usize(true)
+        .layout_tests(true)
+        .generate()
+        .expect("Unable to generate libNVVM bindings.");
+    bindings
+        .write_to_file(bindgen_path.as_path())
+        .expect("Cannot write libNVVM bindgen output to file.");
+    reset_mtime(bindgen_path.as_path()).expect("Cannot reset mtime of libNVVM bindings.");
 }
 
 fn reset_mtime<P>(p: P) -> Result<(), Box<dyn error::Error>>

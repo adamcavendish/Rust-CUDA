@@ -1,3 +1,5 @@
 pub mod cublas;
-pub mod nvvm;
+pub mod cublaslt;
+pub mod cublasxt;
 pub mod driver;
+pub mod nvvm;

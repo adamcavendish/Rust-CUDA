@@ -73,6 +73,18 @@ impl CudaSdk {
         self.cuda_library_paths.clone()
     }
 
+    pub fn nvvm_include_paths(&self) -> Vec<path::PathBuf> {
+        vec![self.cuda_root.join("nvvm").join("include")]
+    }
+
+    pub fn nvvm_library_paths(&self) -> Vec<path::PathBuf> {
+        if cfg!(target_os = "windows") {
+            vec![self.cuda_root.join("nvvm").join("lib").join("x64")]
+        } else {
+            vec![self.cuda_root.join("nvvm").join("lib64")]
+        }
+    }
+
     pub fn related_cuda_envs(&self) -> Vec<String> {
         CUDA_ROOT_ENVS
             .iter()
