@@ -8,6 +8,20 @@ description = "High level bindings to libnvvm"
 repository = "https://github.com/Rust-GPU/Rust-CUDA"
 readme = "../../README.md"
 
-[build-dependencies]
-bindgen = "0.71.1"
-# find_cuda_helper = { version = "0.2", path = "../find_cuda_helper" }
+[dependencies]
+cust_raw = { path = "../cust_raw", default-features = false, features = ["nvvm"] }
+
+[features]
+default = ["cuda-12080"]
+# Generate bindgen and build using host system's CUDA SDK headers.
+cuda-from-host = ["cust_raw/cuda-from-host"]
+# Build against a specific CUDA version.
+cuda-11080 = ["cust_raw/cuda-11080"]
+cuda-12000 = ["cust_raw/cuda-12000"]
+cuda-12010 = ["cust_raw/cuda-12010"]
+cuda-12020 = ["cust_raw/cuda-12020"]
+cuda-12030 = ["cust_raw/cuda-12030"]
+cuda-12040 = ["cust_raw/cuda-12040"]
+cuda-12050 = ["cust_raw/cuda-12050"]
+cuda-12060 = ["cust_raw/cuda-12060"]
+cuda-12080 = ["cust_raw/cuda-12080"]

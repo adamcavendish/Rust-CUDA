@@ -68,9 +68,9 @@ fn maybe_create_cuda_driver_bindings(sdk: &cuda_sdk::CudaSdk, force_regen: bool,
     if !force_regen && !cfg!(feature = "driver") {
         return;
     }
-    let bindgen_path = path::PathBuf::from(format!("src/driver/driver_{}.rs", suffix));
+    let bindgen_path = path::PathBuf::from(format!("src/driver_sys/driver_{}.rs", suffix));
     let bindings = bindgen::Builder::default()
-        .header("src/driver/wrapper.h")
+        .header("src/driver_sys/wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .clang_args(
             sdk.cuda_include_paths()
@@ -127,9 +127,9 @@ fn maybe_create_cublas_bindings(sdk: &cuda_sdk::CudaSdk, force_regen: bool, suff
         if !should_generate {
             continue;
         }
-        let bindgen_path = path::PathBuf::from(format!("src/{pkg}/{pkg}_{suffix}.rs"));
+        let bindgen_path = path::PathBuf::from(format!("src/{pkg}_sys/{pkg}_{suffix}.rs"));
         let bindings = bindgen::Builder::default()
-            .header(format!("src/{pkg}/wrapper.h"))
+            .header(format!("src/{pkg}_sys/wrapper.h"))
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .clang_args(
                 sdk.cuda_include_paths()
@@ -162,9 +162,9 @@ fn maybe_create_nvvm_bindings(sdk: &cuda_sdk::CudaSdk, force_regen: bool, suffix
     if !force_regen && !cfg!(feature = "nvvm") {
         return;
     }
-    let bindgen_path = path::PathBuf::from(format!("src/nvvm/nvvm_{}.rs", suffix));
+    let bindgen_path = path::PathBuf::from(format!("src/nvvm_sys/nvvm_{}.rs", suffix));
     let bindings = bindgen::Builder::default()
-        .header("src/nvvm/wrapper.h")
+        .header("src/nvvm_sys/wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .clang_args(
             sdk.nvvm_include_paths()

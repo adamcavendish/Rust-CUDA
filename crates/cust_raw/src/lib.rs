@@ -1,5 +1,10 @@
-pub mod cublas;
-pub mod cublaslt;
-pub mod cublasxt;
-pub mod driver;
-pub mod nvvm;
+#[cfg(feature = "cublas")]
+pub mod cublas_sys;
+#[cfg(feature = "cublaslt")]
+pub mod cublaslt_sys;
+#[cfg(feature = "cublasxt")]
+pub mod cublasxt_sys;
+#[cfg(feature = "driver")]
+pub mod driver_sys;
+#[cfg(feature = "nvvm")]
+pub mod nvvm_sys;
