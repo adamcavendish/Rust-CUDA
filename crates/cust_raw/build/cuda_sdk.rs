@@ -6,6 +6,11 @@ use std::path;
 
 const CUDA_ROOT_ENVS: &[&str] = &["CUDA_PATH", "CUDA_ROOT", "CUDA_TOOLKIT_ROOT_DIR"];
 const CUDA_LIBRARY_PATH_ENV: &str = "CUDA_LIBRARY_PATH";
+const ENV_SEPARATOR: &str = if cfg!(target_os = "windows") {
+    ";"
+} else {
+    ":"
+};
 
 /// Represents the CUDA SDK installation.
 #[derive(Debug, Clone)]
@@ -14,6 +19,9 @@ pub struct CudaSdk {
     cuda_root: path::PathBuf,
     cuda_include_paths: Vec<path::PathBuf>,
     cuda_library_paths: Vec<path::PathBuf>,
+    nvvm_include_paths: Vec<path::PathBuf>,
+    nvvm_library_paths: Vec<path::PathBuf>,
+    libdevice_bitcode_path: path::PathBuf,
     /// The version of the CUDA SDK, represented as an integer (e.g., 11080 for CUDA 11.8).
     cuda_version: u32,
 }
@@ -32,12 +40,29 @@ impl CudaSdk {
         let cuda_version = Self::parse_cuda_version(header_content.as_str())?;
         // Retrieve the CUDA include paths and library paths.
         let cuda_include_paths = vec![cuda_root.join("include")];
-        let cuda_library_paths = Self::find_library_dirs(cuda_root.as_path())?;
+        let cuda_library_paths = Self::find_cuda_library_dirs(cuda_root.as_path())?;
+        // Retrieve the NVVM related paths.
+        let nvvm_include_paths = Self::find_nvvm_include_dirs(cuda_root.as_path())?;
+        let nvvm_library_paths = Self::find_nvvm_library_dirs(cuda_root.as_path())?;
+        let libdevice_bitcode_path = cuda_root
+            .join("nvvm")
+            .join("libdevice")
+            .join("libdevice.10.bc");
+        if !libdevice_bitcode_path.is_file() {
+            return Err(format!(
+                "libdevice bitcode file not found: {}.",
+                libdevice_bitcode_path.display()
+            )
+            .into());
+        }
 
         Ok(Self {
             cuda_root,
             cuda_include_paths,
             cuda_library_paths,
+            nvvm_include_paths,
+            nvvm_library_paths,
+            libdevice_bitcode_path,
             cuda_version,
         })
     }
@@ -74,15 +99,15 @@ impl CudaSdk {
     }
 
     pub fn nvvm_include_paths(&self) -> Vec<path::PathBuf> {
-        vec![self.cuda_root.join("nvvm").join("include")]
+        self.nvvm_include_paths.clone()
     }
 
     pub fn nvvm_library_paths(&self) -> Vec<path::PathBuf> {
-        if cfg!(target_os = "windows") {
-            vec![self.cuda_root.join("nvvm").join("lib").join("x64")]
-        } else {
-            vec![self.cuda_root.join("nvvm").join("lib64")]
-        }
+        self.nvvm_library_paths.clone()
+    }
+
+    pub fn libdevice_bitcode_path(&self) -> &path::Path {
+        self.libdevice_bitcode_path.as_path()
     }
 
     pub fn related_cuda_envs(&self) -> Vec<String> {
@@ -116,7 +141,7 @@ impl CudaSdk {
             .map(|s| path::PathBuf::from(s))
     }
 
-    fn find_library_dirs(
+    fn find_cuda_library_dirs(
         cuda_root: &path::Path,
     ) -> Result<Vec<path::PathBuf>, Box<dyn error::Error>> {
         let (target, triple) = Self::parse_target_triple()?;
@@ -145,19 +170,33 @@ impl CudaSdk {
                 panic!("Unsupported target triple: {target}");
             }
         };
-        let library_dirs = [Self::parse_library_path_env(), search_dirs].concat();
+        let library_dirs = [Self::parse_cuda_library_path_env(), search_dirs].concat();
         let library_dirs = Self::normalize_dirpaths(library_dirs);
         Ok(library_dirs)
     }
 
-    fn parse_library_path_env() -> Vec<path::PathBuf> {
-        const ENV_SEPARATOR: &str = if cfg!(target_os = "windows") {
-            ";"
-        } else {
-            ":"
-        };
+    fn find_nvvm_include_dirs(
+        cuda_root: &path::Path,
+    ) -> Result<Vec<path::PathBuf>, Box<dyn error::Error>> {
+        let search_dirs = vec![cuda_root.join("nvvm").join("include")];
+        let include_dirs = Self::normalize_dirpaths(search_dirs);
+        Ok(include_dirs)
+    }
 
-        // The location of the libcuda, libcudart, and libcublas can be hardcoded with the
+    fn find_nvvm_library_dirs(
+        cuda_root: &path::Path,
+    ) -> Result<Vec<path::PathBuf>, Box<dyn error::Error>> {
+        let search_dirs = if cfg!(target_os = "windows") {
+            vec![cuda_root.join("nvvm").join("lib").join("x64")]
+        } else {
+            vec![cuda_root.join("nvvm").join("lib64")]
+        };
+        let library_dirs = Self::normalize_dirpaths(search_dirs);
+        Ok(library_dirs)
+    }
+
+    fn parse_cuda_library_path_env() -> Vec<path::PathBuf> {
+        // The location of the libcuda, libcudart, libcublas, etc. can be hardcoded with the
         // CUDA_LIBRARY_PATH environment variable.
         if let Ok(p) = env::var(CUDA_LIBRARY_PATH_ENV) {
             p.split(ENV_SEPARATOR).map(path::PathBuf::from).collect()

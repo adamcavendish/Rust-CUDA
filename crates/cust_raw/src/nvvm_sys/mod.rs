@@ -2,6 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+pub const LIBDEVICE_BITCODE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/libdevice.bc"));
+
 #[cfg(feature = "cuda-from-host")]
 mod nvvm_from_host;
 #[cfg(feature = "cuda-from-host")]

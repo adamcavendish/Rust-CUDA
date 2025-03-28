@@ -12,6 +12,9 @@ fn main() {
     if env::var("DOCS_RS").is_ok() && cfg!(doc) {
         return;
     }
+    let out_dir = path::PathBuf::from(
+        env::var("OUT_DIR").expect("OUT_DIR environment variable should be set by cargo."),
+    );
 
     let sdk = cuda_sdk::CudaSdk::new().expect("Cannot create CUDA SDK instance.");
     // Emit metadata for the build script.
@@ -61,6 +64,9 @@ fn main() {
             println!("cargo::rustc-link-search=native={}", libdir.display());
         }
         println!("cargo::rustc-link-lib=dylib=nvvm");
+        // Handle libdevice support.
+        fs::copy(sdk.libdevice_bitcode_path(), out_dir.join("libdevice.bc"))
+            .expect("Cannot copy libdevice bitcode file.");
     }
 }
 
